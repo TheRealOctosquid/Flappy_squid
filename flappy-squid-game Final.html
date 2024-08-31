@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Squid</title>
+    <style>
+        canvas {
+            border: 1px solid #000;
+            display: block;
+            margin: 0 auto;
+        }
+        #instructions {
+            text-align: center;
+            margin-top: 10px;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="320" height="480"></canvas>
+    <div id="instructions">Press SPACE to make the squid swim upwards!</div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game variables
+        const squidX = canvas.width / 3;
+        let squidY = canvas.height / 2;
+        let squidVelocity = 0;
+        const gravity = 0.3;
+        const jumpStrength = -6.4;
+        const coralGap = 180; // Increased from 150
+        const coralWidth = 60; // Kept at 60
+        let score = 0;
+        let corals = [];
+        let bubbles = [];
+
+        // Create initial corals
+        for (let i = 0; i < 3; i++) {
+            corals.push({
+                x: canvas.width + i * 250, // Increased spacing
+                y: Math.random() * (canvas.height - coralGap - 100) + 50
+            });
+        }
+
+        // Create bubbles
+        for (let i = 0; i < 20; i++) {
+            bubbles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 5 + 2,
+                speed: Math.random() * 0.5 + 0.1
+            });
+        }
+
+        function drawSquid(x, y) {
+            ctx.fillStyle = '#FF69B4';
+            ctx.beginPath();
+            ctx.ellipse(x, y, 20, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(x - 8, y - 5, 5, 0, Math.PI * 2);
+            ctx.arc(x + 8, y - 5, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(x - 8, y - 5, 2, 0, Math.PI * 2);
+            ctx.arc(x + 8, y - 5, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Tentacles
+            ctx.strokeStyle = '#FF69B4';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(x - 15 + i * 10, y + 15);
+                ctx.quadraticCurveTo(
+                    x - 15 + i * 10 + Math.sin(Date.now() * 0.01 + i) * 5,
+                    y + 30,
+                    x - 15 + i * 10 + Math.sin(Date.now() * 0.01 + i + Math.PI) * 5,
+                    y + 40
+                );
+                ctx.stroke();
+            }
+        }
+
+        function drawCoral(x, y) {
+            ctx.fillStyle = '#FF7F50';
+            ctx.fillRect(x, 0, coralWidth, y);
+            ctx.fillRect(x, y + coralGap, coralWidth, canvas.height - y - coralGap);
+        }
+
+        function drawBackground() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#4B0082');
+            gradient.addColorStop(1, '#00008B');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw bubbles
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            bubbles.forEach(bubble => {
+                ctx.beginPath();
+                ctx.arc(bubble.x, bubble.y, bubble.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function updateGame() {
+            squidVelocity += gravity;
+            squidY += squidVelocity;
+
+            // Calculate game speed based on score
+            const gameSpeed = Math.min(1.5 + score * 0.03, 3); // Reduced initial speed and max speed
+
+            // Move corals
+            corals.forEach(coral => {
+                coral.x -= gameSpeed;
+
+                // Check for collision
+                if (
+                    squidX + 20 > coral.x && squidX - 20 < coral.x + coralWidth &&
+                    (squidY - 15 < coral.y || squidY + 15 > coral.y + coralGap)
+                ) {
+                    alert('Game Over! Score: ' + score);
+                    resetGame();
+                }
+
+                // Increase score
+                if (coral.x + coralWidth < squidX && coral.x + coralWidth > squidX - gameSpeed) {
+                    score++;
+                }
+
+                // Reset coral position
+                if (coral.x + coralWidth < 0) {
+                    coral.x = canvas.width;
+                    // Adjust difficulty based on score
+                    if (score <= 30) {
+                        coral.y = Math.random() * (canvas.height - coralGap - 250) + 125; // More centered
+                    } else {
+                        coral.y = Math.random() * (canvas.height - coralGap - 150) + 75; // Full range
+                    }
+                }
+            });
+
+            // Move bubbles
+            bubbles.forEach(bubble => {
+                bubble.y -= bubble.speed;
+                if (bubble.y + bubble.size < 0) {
+                    bubble.y = canvas.height + bubble.size;
+                    bubble.x = Math.random() * canvas.width;
+                }
+            });
+
+            // Keep squid within canvas
+            if (squidY > canvas.height - 15) {
+                squidY = canvas.height - 15;
+                squidVelocity = 0;
+            }
+            if (squidY < 15) {
+                squidY = 15;
+                squidVelocity = 0;
+            }
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+            corals.forEach(coral => drawCoral(coral.x, coral.y));
+            drawSquid(squidX, squidY);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.fillText('Score: ' + score, 10, 30);
+        }
+
+        function gameLoop() {
+            updateGame();
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resetGame() {
+            squidY = canvas.height / 2;
+            squidVelocity = 0;
+            score = 0;
+            corals = [];
+            for (let i = 0; i < 3; i++) {
+                corals.push({
+                    x: canvas.width + i * 250,
+                    y: Math.random() * (canvas.height - coralGap - 250) + 125 // More centered for initial difficulty
+                });
+            }
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space') {
+                squidVelocity = jumpStrength;
+                event.preventDefault();
+            }
+        });
+
+        gameLoop();
+    </script>
+</body>
+</html>
